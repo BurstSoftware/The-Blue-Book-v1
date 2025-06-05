@@ -31,7 +31,7 @@ def extract_pdf_text(uploaded_files):
 
 # Function to call Gemini API
 def call_gemini_api(api_key, prompt):
-    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-preview:generateContent"
     headers = {"Content-Type": "application/json"}
     data = {
         "contents": [
@@ -45,7 +45,19 @@ def call_gemini_api(api_key, prompt):
     try:
         response = requests.post(f"{url}?key={api_key}", headers=headers, json=data)
         response.raise_for_status()
-        return response.json().get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+        result = response.json()
+        # Check for valid response structure
+        if "candidates" not in result or not result["candidates"]:
+            st.error("Invalid response from Gemini API: No candidates found.")
+            return None
+        return result["candidates"][0].get("content", {}).get("parts", [{}])[0].get("text", "")
+    except requests.exceptions.HTTPError as http_err:
+        st.error(f"HTTP Error calling Gemini API: {http_err}")
+        if response.status_code == 503:
+            st.error("Service Unavailable (503). Please check if the 'gemini-2.5-pro-preview' model is accessible with your API key or try again later.")
+        elif response.status_code == 401:
+            st.error("Authentication Error (401). Please verify your API key.")
+        return None
     except Exception as e:
         st.error(f"Error calling Gemini API: {str(e)}")
         return None
